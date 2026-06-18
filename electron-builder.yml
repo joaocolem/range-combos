@@ -1,0 +1,41 @@
+appId: com.rangecombos.app
+productName: Range Combos
+directories:
+  output: dist
+  buildResources: build
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.eslintrc,.prettierrc,tsconfig.json,tsconfig.*.json}'
+  - '!{.env,.env.*,.github}'
+asarUnpack:
+  - resources/**
+
+# Auto-update via GitHub Releases. Troque owner pelo seu usuario/org do GitHub.
+publish:
+  provider: github
+  owner: SEU_USUARIO_GITHUB
+  repo: range-combos
+
+mac:
+  target:
+    - dmg
+    - zip # zip e necessario para o auto-update no macOS
+  category: public.app-category.utilities
+  # Assinatura/notarizacao desativadas por enquanto (decidir depois).
+  # Para ativar: defina os secrets CSC_LINK, CSC_KEY_PASSWORD, APPLE_ID,
+  # APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID no CI e remova a linha abaixo.
+  identity: null
+  notarize: false
+
+win:
+  target:
+    - nsis
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+
+# Para assinar o Windows depois: defina CSC_LINK e CSC_KEY_PASSWORD no CI.

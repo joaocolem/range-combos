@@ -1,0 +1,24 @@
+import { contextBridge, ipcRenderer } from 'electron'
+import type {
+  IdentifyImageInput,
+  IdentifyResponse,
+  TestKeyResponse,
+  UpdateStatus
+} from '../shared/types'
+
+const api = {
+  hasApiKey: (): Promise<boolean> => ipcRenderer.invoke('has-api-key'),
+  setApiKey: (key: string): Promise<{ ok: true }> => ipcRenderer.invoke('set-api-key', key),
+  testApiKey: (key: string): Promise<TestKeyResponse> => ipcRenderer.invoke('test-api-key', key),
+  identify: (images: IdentifyImageInput[]): Promise<IdentifyResponse> =>
+    ipcRenderer.invoke('identify-range', images),
+  onUpdateStatus: (cb: (status: UpdateStatus) => void): (() => void) => {
+    const listener = (_e: unknown, status: UpdateStatus): void => cb(status)
+    ipcRenderer.on('update-status', listener)
+    return () => ipcRenderer.removeListener('update-status', listener)
+  }
+}
+
+export type RangeCombosApi = typeof api
+
+contextBridge.exposeInMainWorld('api', api)
