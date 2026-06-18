@@ -15,7 +15,11 @@ Leia TODAS as celulas visiveis. Para cada celula retorne:
 - "hand": o rotulo canonico da mao (AA, AKs, AKo, 72o, etc., carta mais alta primeiro);
 - "value": o numero exibido com o sufixo ja expandido para um inteiro simples.
 Se uma celula nao tiver numero ou estiver ilegivel, use value 0.
-Nao invente celulas que nao aparecem. Responda apenas com os dados estruturados.`
+Nao invente celulas que nao aparecem.
+
+Responda EXCLUSIVAMENTE com um objeto JSON valido, sem markdown, sem cercas de
+codigo, sem nenhum texto antes ou depois, exatamente neste formato:
+{"cells":[{"hand":"AA","value":1100},{"hand":"AKs","value":710}]}`
 
 const SCHEMA = {
   type: 'object',
@@ -43,11 +47,23 @@ function parseDataUrl(dataUrl: string): { mediaType: string; data: string } {
   return { mediaType: match[1], data: match[2] }
 }
 
-function extractJson(content: Anthropic.Messages.ContentBlock[]): string {
-  for (const block of content) {
-    if (block.type === 'text') return block.text
-  }
-  return ''
+function extractText(content: Anthropic.Messages.ContentBlock[]): string {
+  return content
+    .filter((b): b is Anthropic.Messages.TextBlock => b.type === 'text')
+    .map((b) => b.text)
+    .join('\n')
+    .trim()
+}
+
+/** Extrai o objeto JSON de uma resposta que pode vir com cercas de codigo ou texto extra. */
+function extractJsonObject(text: string): string {
+  let t = text.trim()
+  const fence = /```(?:json)?\s*([\s\S]*?)```/i.exec(t)
+  if (fence) t = fence[1].trim()
+  const start = t.indexOf('{')
+  const end = t.lastIndexOf('}')
+  if (start !== -1 && end !== -1 && end > start) t = t.slice(start, end + 1)
+  return t
 }
 
 /** Le uma imagem de range e retorna as celulas + total para uma acao. */
@@ -84,12 +100,19 @@ export async function identifyImage(
     throw new Error('O modelo recusou a solicitacao para esta imagem.')
   }
 
-  const text = extractJson(res.content)
+  const text = extractText(res.content)
+  if (!text) {
+    throw new Error(
+      'O modelo nao retornou texto. Tente novamente ou use uma imagem mais nitida do grid.'
+    )
+  }
+
   let parsed: { cells?: RangeCell[] }
   try {
-    parsed = JSON.parse(text)
+    parsed = JSON.parse(extractJsonObject(text))
   } catch {
-    throw new Error('Nao foi possivel interpretar a resposta do modelo.')
+    console.error('[identify] resposta nao-JSON do modelo:', text.slice(0, 600))
+    throw new Error('Nao foi possivel interpretar a resposta do modelo. Tente novamente.')
   }
 
   const cells: RangeCell[] = (parsed.cells ?? [])
