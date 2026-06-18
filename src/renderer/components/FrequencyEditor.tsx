@@ -1,6 +1,9 @@
+import { useState } from 'react'
 import type { Frequency } from '../App'
+import { hrcString } from '../merge'
 import { ImagePasteSlot } from './ImagePasteSlot'
 import { RangeGridPreview } from './RangeGridPreview'
+import { MergedGridPreview } from './MergedGridPreview'
 
 interface Props {
   index: number
@@ -17,7 +20,9 @@ export function FrequencyEditor({
   onConfirm,
   onRemove
 }: Props): JSX.Element {
+  const [showMerged, setShowMerged] = useState(false)
   const hasAnyImage = frequency.slots.some((s) => s.dataUrl)
+  const results = frequency.results
 
   return (
     <section className="freq-card">
@@ -52,11 +57,25 @@ export function FrequencyEditor({
         {frequency.error && <span className="freq-error">{frequency.error}</span>}
       </div>
 
-      {frequency.results && frequency.results.length > 0 && (
-        <div className="freq-results">
-          {frequency.results.map((res) => (
-            <RangeGridPreview key={res.action} result={res} />
-          ))}
+      {results && results.length > 0 && (
+        <div className="freq-results-wrap">
+          <div className="freq-tools">
+            <button className="btn btn-primary btn-sm" onClick={() => setShowMerged((s) => !s)}>
+              {showMerged ? 'Ocultar range mesclado' : 'Calcular range mesclado'}
+            </button>
+          </div>
+
+          {showMerged && <MergedGridPreview results={results} />}
+
+          <div className="freq-results">
+            {results.map((res) => (
+              <RangeGridPreview
+                key={res.action}
+                result={res}
+                hrc={hrcString(results, res.action)}
+              />
+            ))}
+          </div>
         </div>
       )}
     </section>

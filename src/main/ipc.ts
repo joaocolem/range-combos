@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { ipcMain, clipboard } from 'electron'
 import { getApiKey, hasApiKey, setApiKey } from './store'
 import { identifyImage, testKey } from './anthropic'
 import type {
@@ -15,6 +15,11 @@ function errMessage(e: unknown): string {
 
 export function registerIpc(): void {
   ipcMain.handle('has-api-key', () => hasApiKey())
+
+  ipcMain.handle('clipboard-write', (_e, text: string) => {
+    clipboard.writeText(String(text))
+    return { ok: true }
+  })
 
   ipcMain.handle('set-api-key', (_e, key: string) => {
     setApiKey(key)

@@ -12,6 +12,8 @@ const api = {
   testApiKey: (key: string): Promise<TestKeyResponse> => ipcRenderer.invoke('test-api-key', key),
   identify: (images: IdentifyImageInput[]): Promise<IdentifyResponse> =>
     ipcRenderer.invoke('identify-range', images),
+  clipboardWrite: (text: string): Promise<{ ok: true }> =>
+    ipcRenderer.invoke('clipboard-write', text),
   onUpdateStatus: (cb: (status: UpdateStatus) => void): (() => void) => {
     const listener = (_e: unknown, status: UpdateStatus): void => cb(status)
     ipcRenderer.on('update-status', listener)
