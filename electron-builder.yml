@@ -12,22 +12,11 @@ files:
 asarUnpack:
   - resources/**
 
-# Auto-update via GitHub Releases. Troque owner pelo seu usuario/org do GitHub.
+# Auto-update via GitHub Releases (repo publico joaocolem/range-combos).
 publish:
   provider: github
-  owner: SEU_USUARIO_GITHUB
+  owner: joaocolem
   repo: range-combos
-
-mac:
-  target:
-    - dmg
-    - zip # zip e necessario para o auto-update no macOS
-  category: public.app-category.utilities
-  # Assinatura/notarizacao desativadas por enquanto (decidir depois).
-  # Para ativar: defina os secrets CSC_LINK, CSC_KEY_PASSWORD, APPLE_ID,
-  # APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID no CI e remova a linha abaixo.
-  identity: null
-  notarize: false
 
 win:
   target:

@@ -62,35 +62,25 @@ Os artefatos vão para `dist/`.
 1. Edite `electron-builder.yml` e troque `owner` pelo seu usuário/organização do GitHub
    (o `repo` é `range-combos`).
 2. A cada release, **suba a versão** em `package.json` (ex.: `0.1.0` → `0.1.1`).
-3. Faça push na branch **`main`**. O workflow `.github/workflows/release.yml` builda macOS e
-   Windows e publica um Release no GitHub com os instaladores e os metadados de update
-   (`latest.yml` / `latest-mac.yml`).
+3. Faça push na branch **`main`**. O workflow `.github/workflows/release.yml` builda o **Windows**
+   e publica um Release no GitHub com o instalador (`.exe`) e os metadados de update (`latest.yml`).
 4. O app verifica atualizações automaticamente ao abrir (`electron-updater`).
 
 > Configure o repositório em **dois lugares** (devem bater): `owner`/`repo` em
 > `electron-builder.yml` e `GITHUB_OWNER`/`GITHUB_REPO` em `src/shared/config.ts`.
 
-### Comportamento do update por sistema
+### Comportamento do update (Windows)
 
-O app verifica updates ao abrir e há um botão **"Verificar atualizações"** na barra de topo.
+O alvo de distribuição é o **Windows**. O app verifica updates ao abrir e há um botão
+**"Verificar atualizações"** na barra de topo. Ao detectar nova versão, mostra um aviso
+**perguntando se deseja baixar**; você clica em **Baixar** → barra de progresso → botão
+**Reiniciar e atualizar** (instala e reabre). Funciona sem assinatura — o instalador exibe um
+aviso do SmartScreen na primeira instalação. Para assinar o Windows depois (e remover o aviso),
+defina `CSC_LINK` e `CSC_KEY_PASSWORD` nos secrets do CI.
 
-- **Windows** (electron-updater): ao detectar nova versão, mostra um aviso **perguntando se
-  deseja baixar**. Você clica em **Baixar** → barra de progresso → botão **Reiniciar e
-  atualizar** (instala e reabre). Funciona sem assinatura (o instalador exibe um aviso do
-  SmartScreen).
-- **macOS**: como não está assinado, a verificação é feita via API do GitHub (sem depender de
-  assinatura). Ao detectar nova versão, mostra o aviso e o botão **Baixar** abre a página de
-  releases para baixar o `.dmg` manualmente.
-
-### Assinatura de código (decidir depois)
-
-A estrutura já está pronta; a assinatura está **desativada** por enquanto. Para ativar o
-auto-update completo no macOS (download + instalação automáticos), é preciso assinar +
-notarizar (conta Apple Developer, US$99/ano): configure os secrets `CSC_LINK`,
-`CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`, remova
-`identity: null`/`notarize: false` em `electron-builder.yml`, descomente os envs no workflow e
-troque a verificação do macOS pelo fluxo do electron-updater. Para assinar o Windows, defina
-`CSC_LINK` e `CSC_KEY_PASSWORD` nos secrets.
+> Observação: o app ainda roda no macOS em desenvolvimento (`npm run dev`), mas o build/CI e o
+> auto-update são focados no Windows. O código de verificação no macOS (via API do GitHub) fica
+> inerte por não haver build de macOS publicado.
 
 ## Estrutura
 
