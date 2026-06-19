@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { ActionResult, UpdateStatus } from '../shared/types'
+import { normalizeHand } from './hands'
 import { hrcString } from './merge'
 import { computeFoldResult } from './fold'
 import { ImageActionCard } from './components/ImageActionCard'
 import { FoldActionCard } from './components/FoldActionCard'
+import { EditableRangeGrid } from './components/EditableRangeGrid'
 import { RangeGridPreview } from './components/RangeGridPreview'
 import { MergedGridPreview } from './components/MergedGridPreview'
 import { SettingsModal } from './components/Settings'
@@ -50,15 +52,25 @@ function bannerText(s: UpdateStatus): string | null {
   }
 }
 
+function AiIcon(): JSX.Element {
+  return (
+    <svg className="ai-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 2l1.7 4.6L18.5 8l-4.8 1.4L12 14l-1.7-4.6L5.5 8l4.8-1.4L12 2z" />
+      <path d="M19 13l.9 2.4 2.6.7-2.6.7-.9 2.4-.9-2.4-2.6-.7 2.6-.7L19 13z" />
+    </svg>
+  )
+}
+
 export function App(): JSX.Element {
   const [actions, setActions] = useState<ActionItem[]>(() => [
     imageAction('Raise'),
     imageAction('Call'),
     foldAction()
   ])
+  const [extracted, setExtracted] = useState<ActionResult[] | null>(null)
   const [results, setResults] = useState<ActionResult[] | null>(null)
   const [foldPct, setFoldPct] = useState<number | null>(null)
-  const [computing, setComputing] = useState(false)
+  const [extracting, setExtracting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [hasKey, setHasKey] = useState<boolean | null>(null)
@@ -80,17 +92,21 @@ export function App(): JSX.Element {
     else window.api.downloadUpdate()
   }, [])
 
-  const hasFold = actions.some((a) => a.kind === 'fold')
   const imageCount = actions.filter((a) => a.kind === 'image').length
 
+  // Mudar nome/imagem/% invalida a extracao e os resultados.
   const patch = useCallback((id: string, p: Partial<ImageAction> & Partial<FoldActionItem>) => {
     setActions((prev) => prev.map((a) => (a.id === id ? ({ ...a, ...p } as ActionItem) : a)))
+    setExtracted(null)
     setResults(null)
+    setFoldPct(null)
   }, [])
 
   const remove = useCallback((id: string) => {
     setActions((prev) => prev.filter((a) => a.id !== id))
+    setExtracted(null)
     setResults(null)
+    setFoldPct(null)
   }, [])
 
   const addImage = useCallback(() => {
@@ -102,13 +118,12 @@ export function App(): JSX.Element {
       else next.splice(foldIdx, 0, item) // mantem o Fold por ultimo
       return next
     })
+    setExtracted(null)
+    setResults(null)
   }, [])
 
-  const addFold = useCallback(() => {
-    setActions((prev) => (prev.some((a) => a.kind === 'fold') ? prev : [...prev, foldAction()]))
-  }, [])
-
-  const calcular = useCallback(async () => {
+  // Passo 1: chamar a API e extrair as matrizes (sem calcular nada ainda).
+  const extrair = useCallback(async () => {
     if (!(await window.api.hasApiKey())) {
       setSettingsOpen(true)
       return
@@ -126,21 +141,45 @@ export function App(): JSX.Element {
       return
     }
 
-    setComputing(true)
+    setExtracting(true)
     setError(null)
+    setExtracted(null)
     setResults(null)
     setFoldPct(null)
 
     const resp = await window.api.identify(
       imgs.map((a) => ({ action: a.name.trim(), dataUrl: a.dataUrl as string }))
     )
+    setExtracting(false)
     if (!resp.ok) {
-      setComputing(false)
       setError(resp.error)
       return
     }
+    setExtracted(resp.results)
+  }, [actions])
 
-    let all = resp.results
+  // Edicao de uma celula nas matrizes extraidas.
+  const setCellValue = useCallback((actionIdx: number, hand: string, value: number) => {
+    setExtracted((prev) => {
+      if (!prev) return prev
+      return prev.map((res, i) => {
+        if (i !== actionIdx) return res
+        const m = new Map(res.cells.map((c) => [normalizeHand(c.hand), c.value]))
+        if (value > 0) m.set(normalizeHand(hand), value)
+        else m.delete(normalizeHand(hand))
+        const cells = [...m.entries()].map(([h, v]) => ({ hand: h, value: v }))
+        const total = cells.reduce((s, c) => s + c.value, 0)
+        return { ...res, cells, total }
+      })
+    })
+    setResults(null)
+    setFoldPct(null)
+  }, [])
+
+  // Passo 2: calcular mescla + fold + HRC a partir das matrizes (ja editadas).
+  const calcular = useCallback(() => {
+    if (!extracted) return
+    let all = [...extracted]
     let foldFraction: number | null = null
     const fold = actions.find((a): a is FoldActionItem => a.kind === 'fold')
     if (fold) {
@@ -150,11 +189,9 @@ export function App(): JSX.Element {
       foldFraction = fr.foldFraction
       all = [...all, fr]
     }
-
     setFoldPct(foldFraction)
     setResults(all)
-    setComputing(false)
-  }, [actions])
+  }, [extracted, actions])
 
   return (
     <div className="app">
@@ -200,8 +237,9 @@ export function App(): JSX.Element {
           <h1>Identificar range</h1>
           <p>
             Cada frequencia e uma acao do range (Raise, Call, 3bet all in...). Dê um nome e cole o
-            print com <kbd>Ctrl</kbd>+<kbd>V</kbd>. Para o fold, basta informar a % — o sistema
-            infere as maos. Depois clique em <strong>Calcular</strong>.
+            print com <kbd>Ctrl</kbd>+<kbd>V</kbd>. No Fold informe so a % (opcional). Clique em{' '}
+            <strong>Extrair matrizes</strong>, confira/edite os valores e entao{' '}
+            <strong>Calcular</strong>.
           </p>
         </div>
 
@@ -221,7 +259,6 @@ export function App(): JSX.Element {
                 key={a.id}
                 percentText={a.percentText}
                 onPercent={(percentText) => patch(a.id, { percentText })}
-                onRemove={() => remove(a.id)}
               />
             )
           )}
@@ -231,17 +268,44 @@ export function App(): JSX.Element {
           <button className="btn btn-add" onClick={addImage}>
             + Adicionar frequencia
           </button>
-          <button className="btn btn-add" onClick={addFold} disabled={hasFold}>
-            + Adicionar fold
-          </button>
         </div>
 
-        <div className="calc-bar">
-          <button className="btn btn-primary btn-calc" onClick={calcular} disabled={computing}>
-            {computing ? 'Calculando...' : 'Calcular'}
-          </button>
-          {error && <span className="freq-error">{error}</span>}
-        </div>
+        {!extracted && (
+          <div className="calc-bar">
+            <button className="btn btn-primary btn-calc" onClick={extrair} disabled={extracting}>
+              <AiIcon /> {extracting ? 'Extraindo...' : 'Extrair matrizes'}
+            </button>
+            {error && <span className="freq-error">{error}</span>}
+          </div>
+        )}
+
+        {extracted && !results && (
+          <section className="extracted">
+            <div className="section-head">
+              <h2>Matrizes extraidas</h2>
+              <span className="section-hint">
+                Confira os valores. Clique 2x numa celula para editar o numero de combos.
+              </span>
+            </div>
+            <div className="freq-results">
+              {extracted.map((res, i) => (
+                <EditableRangeGrid
+                  key={res.action}
+                  result={res}
+                  onChange={(hand, value) => setCellValue(i, hand, value)}
+                />
+              ))}
+            </div>
+            <div className="calc-bar">
+              <button className="btn btn-primary btn-calc" onClick={calcular}>
+                Calcular
+              </button>
+              <button className="btn btn-ghost" onClick={() => setExtracted(null)}>
+                Refazer extracao
+              </button>
+            </div>
+          </section>
+        )}
 
         {results && results.length > 0 && (
           <section className="results">
@@ -259,6 +323,11 @@ export function App(): JSX.Element {
                   hrc={hrcString(results, res.action)}
                 />
               ))}
+            </div>
+            <div className="calc-bar">
+              <button className="btn btn-ghost" onClick={() => setResults(null)}>
+                Editar matrizes
+              </button>
             </div>
           </section>
         )}

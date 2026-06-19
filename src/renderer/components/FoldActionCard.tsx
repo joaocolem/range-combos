@@ -1,19 +1,15 @@
 interface Props {
   percentText: string
   onPercent: (value: string) => void
-  onRemove: () => void
 }
 
-export function FoldActionCard({ percentText, onPercent, onRemove }: Props): JSX.Element {
+export function FoldActionCard({ percentText, onPercent }: Props): JSX.Element {
   return (
     <section className="freq-card fold-card">
       <div className="freq-head">
         <span className="action-name-static">
           <span className="fold-swatch" /> Fold
         </span>
-        <button className="btn btn-ghost btn-sm" onClick={onRemove}>
-          Remover
-        </button>
       </div>
       <div className="fold-body">
         <label className="field-label" htmlFor="foldpct">
