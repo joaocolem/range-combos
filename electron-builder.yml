@@ -13,10 +13,12 @@ asarUnpack:
   - resources/**
 
 # Auto-update via GitHub Releases (repo publico joaocolem/range-combos).
+# releaseType: release publica direto (nao como rascunho), para o auto-update enxergar.
 publish:
   provider: github
   owner: joaocolem
   repo: range-combos
+  releaseType: release
 
 win:
   target:
