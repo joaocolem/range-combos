@@ -3,18 +3,19 @@ import type { ActionResult, UpdateStatus } from '../shared/types'
 import { normalizeHand } from './hands'
 import { hrcString } from './merge'
 import { computeFoldResult } from './fold'
-import { ImageActionCard } from './components/ImageActionCard'
+import { parseRange } from './parseRange'
+import { RangeActionCard } from './components/RangeActionCard'
 import { FoldActionCard } from './components/FoldActionCard'
-import { EditableRangeGrid } from './components/EditableRangeGrid'
 import { RangeGridPreview } from './components/RangeGridPreview'
 import { MergedGridPreview } from './components/MergedGridPreview'
-import { SettingsModal } from './components/Settings'
+import { HrcCopyBar } from './components/HrcCopyBar'
 
-interface ImageAction {
+interface RangeAction {
   id: string
-  kind: 'image'
+  kind: 'range'
   name: string
-  dataUrl: string | null
+  text: string
+  result: ActionResult | null
 }
 
 interface FoldActionItem {
@@ -23,12 +24,12 @@ interface FoldActionItem {
   percentText: string
 }
 
-type ActionItem = ImageAction | FoldActionItem
+type ActionItem = RangeAction | FoldActionItem
 
 let counter = 0
-function imageAction(name = ''): ImageAction {
+function rangeAction(name = ''): RangeAction {
   counter += 1
-  return { id: `a${counter}-${Date.now()}`, kind: 'image', name, dataUrl: null }
+  return { id: `a${counter}-${Date.now()}`, kind: 'range', name, text: '', result: null }
 }
 function foldAction(): FoldActionItem {
   counter += 1
@@ -52,136 +53,135 @@ function bannerText(s: UpdateStatus): string | null {
   }
 }
 
-function AiIcon(): JSX.Element {
-  return (
-    <svg className="ai-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M12 2l1.7 4.6L18.5 8l-4.8 1.4L12 14l-1.7-4.6L5.5 8l4.8-1.4L12 2z" />
-      <path d="M19 13l.9 2.4 2.6.7-2.6.7-.9 2.4-.9-2.4-2.6-.7 2.6-.7L19 13z" />
-    </svg>
-  )
-}
-
 export function App(): JSX.Element {
   const [actions, setActions] = useState<ActionItem[]>(() => [
-    imageAction('Raise'),
-    imageAction('Call'),
+    rangeAction('Raise'),
+    rangeAction('Call'),
     foldAction()
   ])
-  const [extracted, setExtracted] = useState<ActionResult[] | null>(null)
   const [results, setResults] = useState<ActionResult[] | null>(null)
   const [foldPct, setFoldPct] = useState<number | null>(null)
-  const [extracting, setExtracting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const [hasKey, setHasKey] = useState<boolean | null>(null)
-  const [settingsOpen, setSettingsOpen] = useState(false)
   const [update, setUpdate] = useState<UpdateStatus | null>(null)
   const [version, setVersion] = useState('')
 
-  const refreshKey = useCallback(async () => {
-    setHasKey(await window.api.hasApiKey())
-  }, [])
-
   useEffect(() => {
-    refreshKey()
     window.api.getVersion().then(setVersion)
     const off = window.api.onUpdateStatus((s) => setUpdate(s))
     return off
-  }, [refreshKey])
+  }, [])
 
   const onDownloadUpdate = useCallback(() => {
     if (window.api.platform === 'darwin') window.api.openDownloadPage()
     else window.api.downloadUpdate()
   }, [])
 
-  const imageCount = actions.filter((a) => a.kind === 'image').length
+  const rangeCount = actions.filter((a) => a.kind === 'range').length
 
-  // Mudar nome/imagem/% invalida a extracao e os resultados.
-  const patch = useCallback((id: string, p: Partial<ImageAction> & Partial<FoldActionItem>) => {
-    setActions((prev) => prev.map((a) => (a.id === id ? ({ ...a, ...p } as ActionItem) : a)))
-    setExtracted(null)
+  // Qualquer mudanca nas frequencias invalida os resultados calculados.
+  const invalidate = useCallback(() => {
     setResults(null)
     setFoldPct(null)
+    setError(null)
   }, [])
 
-  const remove = useCallback((id: string) => {
-    setActions((prev) => prev.filter((a) => a.id !== id))
-    setExtracted(null)
-    setResults(null)
-    setFoldPct(null)
-  }, [])
+  const setName = useCallback(
+    (id: string, name: string) => {
+      setActions((prev) =>
+        prev.map((a) => (a.id === id && a.kind === 'range' ? { ...a, name } : a))
+      )
+      invalidate()
+    },
+    [invalidate]
+  )
 
-  const addImage = useCallback(() => {
+  // Colar/digitar o range: parseia na hora e a matriz aparece automaticamente.
+  const setText = useCallback(
+    (id: string, text: string) => {
+      setActions((prev) =>
+        prev.map((a) => {
+          if (a.id !== id || a.kind !== 'range') return a
+          const result = text.trim() ? parseRange(text, a.name.trim() || 'Frequencia') : null
+          return { ...a, text, result }
+        })
+      )
+      invalidate()
+    },
+    [invalidate]
+  )
+
+  const setPercent = useCallback(
+    (id: string, percentText: string) => {
+      setActions((prev) =>
+        prev.map((a) => (a.id === id && a.kind === 'fold' ? { ...a, percentText } : a))
+      )
+      invalidate()
+    },
+    [invalidate]
+  )
+
+  // Edicao manual de uma celula da matriz ja extraida.
+  const setCellValue = useCallback(
+    (id: string, hand: string, value: number) => {
+      setActions((prev) =>
+        prev.map((a) => {
+          if (a.id !== id || a.kind !== 'range' || !a.result) return a
+          const m = new Map(a.result.cells.map((c) => [normalizeHand(c.hand), c.value]))
+          if (value > 0) m.set(normalizeHand(hand), value)
+          else m.delete(normalizeHand(hand))
+          const cells = [...m.entries()].map(([h, v]) => ({ hand: h, value: v }))
+          const total = cells.reduce((s, c) => s + c.value, 0)
+          return { ...a, result: { ...a.result, cells, total } }
+        })
+      )
+      invalidate()
+    },
+    [invalidate]
+  )
+
+  const remove = useCallback(
+    (id: string) => {
+      setActions((prev) => prev.filter((a) => a.id !== id))
+      invalidate()
+    },
+    [invalidate]
+  )
+
+  const addRange = useCallback(() => {
     setActions((prev) => {
       const next = [...prev]
       const foldIdx = next.findIndex((a) => a.kind === 'fold')
-      const item = imageAction('')
+      const item = rangeAction('')
       if (foldIdx === -1) next.push(item)
       else next.splice(foldIdx, 0, item) // mantem o Fold por ultimo
       return next
     })
-    setExtracted(null)
-    setResults(null)
-  }, [])
+    invalidate()
+  }, [invalidate])
 
-  // Passo 1: chamar a API e extrair as matrizes (sem calcular nada ainda).
-  const extrair = useCallback(async () => {
-    if (!(await window.api.hasApiKey())) {
-      setSettingsOpen(true)
-      return
-    }
-    const imgs = actions.filter(
-      (a): a is ImageAction => a.kind === 'image' && !!a.dataUrl && a.name.trim() !== ''
+  // Mescla as matrizes + infere o fold + gera as strings HRC.
+  const calcular = useCallback(() => {
+    const ranges = actions.filter(
+      (a): a is RangeAction => a.kind === 'range' && !!a.result && a.result.cells.length > 0
     )
-    if (!imgs.length) {
-      setError('Adicione pelo menos uma frequencia com nome e imagem colada.')
+    if (!ranges.length) {
+      setError('Cole pelo menos um range com combos validos.')
       return
     }
-    const names = imgs.map((a) => a.name.trim())
-    if (new Set(names.map((n) => n.toLowerCase())).size !== names.length) {
+    const named = ranges.map((a) => ({ ...a, name: a.name.trim() }))
+    if (named.some((a) => !a.name)) {
+      setError('De um nome para cada frequencia.')
+      return
+    }
+    if (new Set(named.map((a) => a.name.toLowerCase())).size !== named.length) {
       setError('Use nomes diferentes para cada frequencia.')
       return
     }
 
-    setExtracting(true)
     setError(null)
-    setExtracted(null)
-    setResults(null)
-    setFoldPct(null)
+    let all: ActionResult[] = named.map((a) => ({ ...(a.result as ActionResult), action: a.name }))
 
-    const resp = await window.api.identify(
-      imgs.map((a) => ({ action: a.name.trim(), dataUrl: a.dataUrl as string }))
-    )
-    setExtracting(false)
-    if (!resp.ok) {
-      setError(resp.error)
-      return
-    }
-    setExtracted(resp.results)
-  }, [actions])
-
-  // Edicao de uma celula nas matrizes extraidas.
-  const setCellValue = useCallback((actionIdx: number, hand: string, value: number) => {
-    setExtracted((prev) => {
-      if (!prev) return prev
-      return prev.map((res, i) => {
-        if (i !== actionIdx) return res
-        const m = new Map(res.cells.map((c) => [normalizeHand(c.hand), c.value]))
-        if (value > 0) m.set(normalizeHand(hand), value)
-        else m.delete(normalizeHand(hand))
-        const cells = [...m.entries()].map(([h, v]) => ({ hand: h, value: v }))
-        const total = cells.reduce((s, c) => s + c.value, 0)
-        return { ...res, cells, total }
-      })
-    })
-    setResults(null)
-    setFoldPct(null)
-  }, [])
-
-  // Passo 2: calcular mescla + fold + HRC a partir das matrizes (ja editadas).
-  const calcular = useCallback(() => {
-    if (!extracted) return
-    let all = [...extracted]
     let foldFraction: number | null = null
     const fold = actions.find((a): a is FoldActionItem => a.kind === 'fold')
     if (fold) {
@@ -193,7 +193,7 @@ export function App(): JSX.Element {
     }
     setFoldPct(foldFraction)
     setResults(all)
-  }, [extracted, actions])
+  }, [actions])
 
   return (
     <div className="app">
@@ -204,12 +204,8 @@ export function App(): JSX.Element {
           {version && <span className="brand-version">v{version}</span>}
         </div>
         <div className="topbar-right">
-          {hasKey === false && <span className="badge badge-warn">Sem chave de API</span>}
           <button className="btn btn-ghost" onClick={() => window.api.checkUpdates()}>
             Verificar atualizacoes
-          </button>
-          <button className="btn btn-ghost" onClick={() => setSettingsOpen(true)}>
-            Configuracoes
           </button>
         </div>
       </header>
@@ -236,114 +232,84 @@ export function App(): JSX.Element {
       )}
 
       <main className="content">
-        <div className="intro">
-          <h1>Identificar range</h1>
-          <p>
-            Cada frequencia e uma acao do range (Raise, Call, 3bet all in...). Dê um nome e cole o
-            print com <kbd>Ctrl</kbd>+<kbd>V</kbd>. No Fold informe so a % (opcional). Clique em{' '}
-            <strong>Extrair matrizes</strong>, confira/edite os valores e entao{' '}
-            <strong>Calcular</strong>.
-          </p>
-        </div>
-
-        <div className="actions-grid">
-          {actions.map((a) =>
-            a.kind === 'image' ? (
-              <ImageActionCard
-                key={a.id}
-                name={a.name}
-                dataUrl={a.dataUrl}
-                onName={(name) => patch(a.id, { name })}
-                onImage={(dataUrl) => patch(a.id, { dataUrl })}
-                onRemove={imageCount > 1 ? () => remove(a.id) : undefined}
-              />
-            ) : (
-              <FoldActionCard
-                key={a.id}
-                percentText={a.percentText}
-                onPercent={(percentText) => patch(a.id, { percentText })}
-              />
-            )
-          )}
-        </div>
-
-        <div className="add-row">
-          <button className="btn btn-add" onClick={addImage}>
-            + Adicionar frequencia
-          </button>
-        </div>
-
-        {!extracted && (
-          <div className="calc-bar">
-            <button className="btn btn-primary btn-calc" onClick={extrair} disabled={extracting}>
-              <AiIcon /> {extracting ? 'Extraindo...' : 'Extrair matrizes'}
-            </button>
-            {error && <span className="freq-error">{error}</span>}
-          </div>
-        )}
-
-        {extracted && !results && (
-          <section className="extracted">
-            <div className="section-head">
-              <h2>Matrizes extraidas</h2>
-              <span className="section-hint">
-                Confira os valores. Clique 2x numa celula para editar o numero de combos.
-              </span>
+        {!results ? (
+          <>
+            <div className="intro">
+              <h1>Identificar range</h1>
+              <p>
+                Cada frequencia e uma acao do range (Raise, Call, 3bet all in...). Dê um nome e cole
+                o JSON exportado do Hand2Note. A matriz aparece automaticamente mostrando a
+                quantidade de combos de cada mao (<code>HandCount</code>). No Fold informe so a %
+                (opcional). Depois clique em <strong>Calcular</strong>.
+              </p>
             </div>
-            <div className="freq-results">
-              {extracted.map((res, i) => (
-                <EditableRangeGrid
-                  key={res.action}
-                  result={res}
-                  onChange={(hand, value) => setCellValue(i, hand, value)}
-                />
-              ))}
+
+            <div className="actions-grid">
+              {actions.map((a) =>
+                a.kind === 'range' ? (
+                  <RangeActionCard
+                    key={a.id}
+                    name={a.name}
+                    text={a.text}
+                    result={a.result}
+                    onName={(name) => setName(a.id, name)}
+                    onText={(text) => setText(a.id, text)}
+                    onCell={(hand, value) => setCellValue(a.id, hand, value)}
+                    onRemove={rangeCount > 1 ? () => remove(a.id) : undefined}
+                  />
+                ) : (
+                  <FoldActionCard
+                    key={a.id}
+                    percentText={a.percentText}
+                    onPercent={(percentText) => setPercent(a.id, percentText)}
+                  />
+                )
+              )}
             </div>
+
+            <div className="add-row">
+              <button className="btn btn-add" onClick={addRange}>
+                + Adicionar frequencia
+              </button>
+            </div>
+
             <div className="calc-bar">
               <button className="btn btn-primary btn-calc" onClick={calcular}>
                 Calcular
               </button>
-              <button className="btn btn-ghost" onClick={() => setExtracted(null)}>
-                Refazer extracao
-              </button>
+              {error && <span className="freq-error">{error}</span>}
             </div>
-          </section>
-        )}
-
-        {results && results.length > 0 && (
-          <section className="results">
-            {foldPct != null && (
-              <div className="results-note">
-                Fold inferido: <strong>{(foldPct * 100).toFixed(1)}%</strong>
+          </>
+        ) : (
+          results.length > 0 && (
+            <section className="results">
+              <div className="results-toolbar">
+                <button className="btn btn-primary" onClick={() => setResults(null)}>
+                  ← Voltar e editar
+                </button>
+                {foldPct != null && (
+                  <span className="results-note">
+                    Fold inferido: <strong>{(foldPct * 100).toFixed(1)}%</strong>
+                  </span>
+                )}
               </div>
-            )}
-            <MergedGridPreview results={results} />
-            <div className="freq-results">
-              {results.map((res) => (
-                <RangeGridPreview
-                  key={res.action}
-                  result={res}
-                  hrc={hrcString(results, res.action)}
-                />
-              ))}
-            </div>
-            <div className="calc-bar">
-              <button className="btn btn-ghost" onClick={() => setResults(null)}>
-                Editar matrizes
-              </button>
-            </div>
-          </section>
+
+              <HrcCopyBar results={results} />
+
+              <MergedGridPreview results={results} />
+              <div className="freq-results">
+                {results.map((res) => (
+                  <RangeGridPreview
+                    key={res.action}
+                    result={res}
+                    hrc={hrcString(results, res.action)}
+                  />
+                ))}
+              </div>
+            </section>
+          )
         )}
       </main>
-
-      {settingsOpen && (
-        <SettingsModal
-          onClose={() => {
-            setSettingsOpen(false)
-            refreshKey()
-          }}
-        />
-      )}
     </div>
   )
 }

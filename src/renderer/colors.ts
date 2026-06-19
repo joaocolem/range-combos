@@ -3,7 +3,7 @@
 type Rgb = [number, number, number]
 
 const MAP: Record<string, Rgb> = {
-  raise: [216, 78, 58],
+  raise: [82, 150, 70],
   call: [56, 120, 198],
   fold: [110, 120, 135],
   '3bet': [205, 120, 40],

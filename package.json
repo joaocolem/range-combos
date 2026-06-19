@@ -1,7 +1,7 @@
 {
   "name": "range-combos",
   "version": "0.1.2",
-  "description": "Identifica ranges de poker e quantidade de combos a partir de prints, via API de visão da Anthropic.",
+  "description": "Visualiza ranges de poker e quantidade de combos a partir do JSON exportado do Hand2Note.",
   "author": "",
   "license": "MIT",
   "main": "./out/main/index.js",
@@ -16,8 +16,6 @@
     "release": "electron-vite build && electron-builder --publish always"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.68.0",
-    "electron-store": "^8.2.0",
     "electron-updater": "^6.3.9"
   },
   "devDependencies": {

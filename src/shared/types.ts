@@ -11,17 +11,6 @@ export interface ActionResult {
   total: number // soma dos values (calculada no main)
 }
 
-export interface IdentifyImageInput {
-  action: string
-  dataUrl: string // data:image/png;base64,...
-}
-
-export type IdentifyResponse =
-  | { ok: true; results: ActionResult[] }
-  | { ok: false; error: string }
-
-export type TestKeyResponse = { ok: true } | { ok: false; error: string }
-
 export interface UpdateStatus {
   state: 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error'
   message?: string

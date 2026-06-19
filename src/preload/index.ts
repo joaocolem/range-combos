@@ -1,18 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type {
-  IdentifyImageInput,
-  IdentifyResponse,
-  TestKeyResponse,
-  UpdateStatus
-} from '../shared/types'
+import type { UpdateStatus } from '../shared/types'
 
 const api = {
   getVersion: (): Promise<string> => ipcRenderer.invoke('app:version'),
-  hasApiKey: (): Promise<boolean> => ipcRenderer.invoke('has-api-key'),
-  setApiKey: (key: string): Promise<{ ok: true }> => ipcRenderer.invoke('set-api-key', key),
-  testApiKey: (key: string): Promise<TestKeyResponse> => ipcRenderer.invoke('test-api-key', key),
-  identify: (images: IdentifyImageInput[]): Promise<IdentifyResponse> =>
-    ipcRenderer.invoke('identify-range', images),
   clipboardWrite: (text: string): Promise<{ ok: true }> =>
     ipcRenderer.invoke('clipboard-write', text),
   onUpdateStatus: (cb: (status: UpdateStatus) => void): (() => void) => {
