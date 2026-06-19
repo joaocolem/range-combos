@@ -31,11 +31,8 @@ export function FoldActionCard({ percentText, onPercent, onRemove }: Props): JSX
           onChange={(e) => onPercent(e.target.value)}
         />
         <p className="field-hint">
-          O peso cheio (100%, sem fold) de cada categoria e ancorado nas maos mais fortes que nao
-          foldam — <strong>AA/KK</strong> (pares), <strong>AKs</strong> (suited) e{' '}
-          <strong>AKo</strong> (offsuit). Cada mao folda a diferenca ate esse cheio, mantendo o
-          play minimo. Em branco, usa as ancoras direto; com a %, ajusta a escala para bater essa
-          porcentagem.
+          Sem print. Maos fortes nao foldam (AA/KK, AKs, AKo) e as fracas absorvem o fold. A % e
+          opcional: em branco usa as ancoras; preenchida ajusta a escala.
         </p>
       </div>
     </section>

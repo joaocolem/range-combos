@@ -53,7 +53,8 @@ function bannerText(s: UpdateStatus): string | null {
 export function App(): JSX.Element {
   const [actions, setActions] = useState<ActionItem[]>(() => [
     imageAction('Raise'),
-    imageAction('Call')
+    imageAction('Call'),
+    foldAction()
   ])
   const [results, setResults] = useState<ActionResult[] | null>(null)
   const [foldPct, setFoldPct] = useState<number | null>(null)
@@ -93,7 +94,14 @@ export function App(): JSX.Element {
   }, [])
 
   const addImage = useCallback(() => {
-    setActions((prev) => [...prev, imageAction('')])
+    setActions((prev) => {
+      const next = [...prev]
+      const foldIdx = next.findIndex((a) => a.kind === 'fold')
+      const item = imageAction('')
+      if (foldIdx === -1) next.push(item)
+      else next.splice(foldIdx, 0, item) // mantem o Fold por ultimo
+      return next
+    })
   }, [])
 
   const addFold = useCallback(() => {
@@ -198,9 +206,8 @@ export function App(): JSX.Element {
         </div>
 
         <div className="actions-grid">
-          {actions
-            .filter((a): a is ImageAction => a.kind === 'image')
-            .map((a) => (
+          {actions.map((a) =>
+            a.kind === 'image' ? (
               <ImageActionCard
                 key={a.id}
                 name={a.name}
@@ -209,19 +216,16 @@ export function App(): JSX.Element {
                 onImage={(dataUrl) => patch(a.id, { dataUrl })}
                 onRemove={imageCount > 1 ? () => remove(a.id) : undefined}
               />
-            ))}
+            ) : (
+              <FoldActionCard
+                key={a.id}
+                percentText={a.percentText}
+                onPercent={(percentText) => patch(a.id, { percentText })}
+                onRemove={() => remove(a.id)}
+              />
+            )
+          )}
         </div>
-
-        {actions
-          .filter((a): a is FoldActionItem => a.kind === 'fold')
-          .map((a) => (
-            <FoldActionCard
-              key={a.id}
-              percentText={a.percentText}
-              onPercent={(percentText) => patch(a.id, { percentText })}
-              onRemove={() => remove(a.id)}
-            />
-          ))}
 
         <div className="add-row">
           <button className="btn btn-add" onClick={addImage}>
