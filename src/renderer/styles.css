@@ -149,16 +149,29 @@ kbd {
   background: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 18px;
+  padding: 14px;
   margin-bottom: 18px;
   box-shadow: var(--shadow);
+}
+
+/* Cards de print lado a lado, compactos. */
+.actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.actions-grid .freq-card {
+  margin-bottom: 0;
 }
 
 .freq-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .freq-title {
@@ -218,7 +231,7 @@ kbd {
 }
 
 .slot-drop {
-  min-height: 150px;
+  min-height: 96px;
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -255,7 +268,7 @@ kbd {
 
 .slot-thumb {
   max-width: 100%;
-  max-height: 230px;
+  max-height: 150px;
   display: block;
 }
 

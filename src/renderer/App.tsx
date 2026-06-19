@@ -80,6 +80,7 @@ export function App(): JSX.Element {
   }, [])
 
   const hasFold = actions.some((a) => a.kind === 'fold')
+  const imageCount = actions.filter((a) => a.kind === 'image').length
 
   const patch = useCallback((id: string, p: Partial<ImageAction> & Partial<FoldActionItem>) => {
     setActions((prev) => prev.map((a) => (a.id === id ? ({ ...a, ...p } as ActionItem) : a)))
@@ -196,25 +197,31 @@ export function App(): JSX.Element {
           </p>
         </div>
 
-        {actions.map((a) =>
-          a.kind === 'image' ? (
-            <ImageActionCard
-              key={a.id}
-              name={a.name}
-              dataUrl={a.dataUrl}
-              onName={(name) => patch(a.id, { name })}
-              onImage={(dataUrl) => patch(a.id, { dataUrl })}
-              onRemove={actions.length > 1 ? () => remove(a.id) : undefined}
-            />
-          ) : (
+        <div className="actions-grid">
+          {actions
+            .filter((a): a is ImageAction => a.kind === 'image')
+            .map((a) => (
+              <ImageActionCard
+                key={a.id}
+                name={a.name}
+                dataUrl={a.dataUrl}
+                onName={(name) => patch(a.id, { name })}
+                onImage={(dataUrl) => patch(a.id, { dataUrl })}
+                onRemove={imageCount > 1 ? () => remove(a.id) : undefined}
+              />
+            ))}
+        </div>
+
+        {actions
+          .filter((a): a is FoldActionItem => a.kind === 'fold')
+          .map((a) => (
             <FoldActionCard
               key={a.id}
               percentText={a.percentText}
               onPercent={(percentText) => patch(a.id, { percentText })}
               onRemove={() => remove(a.id)}
             />
-          )
-        )}
+          ))}
 
         <div className="add-row">
           <button className="btn btn-add" onClick={addImage}>
