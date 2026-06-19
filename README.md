@@ -3,8 +3,19 @@
 App desktop (Electron) que identifica **ranges de poker** e a **quantidade de combos** a partir
 de prints, usando a API de visão da Anthropic.
 
-Você cola os prints (Ctrl+V / ⌘V), organiza em **frequências** (slot Raise + slot Call),
-clica em **OK** e o app reconstrói o grid 13×13 com os valores lidos e o total de combos por ação.
+Cada **frequência** é uma ação nomeada do range (Raise, Call, 3bet all in...). Você dá um nome,
+cola o print (Ctrl+V / ⌘V) e adiciona quantas precisar. Para o **fold**, basta informar a % — o
+app infere quais mãos foldam. Ao clicar em **Calcular**, ele reconstrói o grid 13×13 de cada ação,
+o **range mesclado** (cores proporcionais por mão) e o total de combos, e permite copiar cada range
+no formato **HRC**.
+
+### Inferência do fold
+
+Você normalmente só tem a % global de fold, não o grid. O app infere a distribuição assim: cada mão
+é "recebida" proporcionalmente aos seus combos reais (par 6, suited 4, offsuit 12); as ações jogadas
+(Raise/Call/...) mostram quanto da mão **não** foldou; o fold de cada mão é o que falta para o peso
+cheio. Um fator de escala é calibrado por bisseção para que o fold total bata a % informada. Resultado:
+mãos fortes praticamente não foldam e as fracas absorvem o fold (ex.: AK ≈ 0% de fold, lixo ≈ 100%).
 
 ## Pré-requisitos
 

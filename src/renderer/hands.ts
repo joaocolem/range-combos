@@ -18,6 +18,14 @@ export function normalizeHand(hand: string): string {
   return body + suffix
 }
 
+/** Combos reais de uma mao no baralho: par = 6, suited = 4, offsuit = 12. */
+export function handCombos(hand: string): number {
+  const h = normalizeHand(hand)
+  if (h.length === 2) return 6 // par (AA, KK, ...)
+  if (h.endsWith('s')) return 4 // suited
+  return 12 // offsuit
+}
+
 /** Constroi um mapa mao -> valor a partir das celulas identificadas. */
 export function buildValueMap(cells: RangeCell[]): Map<string, number> {
   const map = new Map<string, number>()

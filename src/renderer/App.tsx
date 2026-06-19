@@ -1,33 +1,36 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { ActionResult, UpdateStatus } from '../shared/types'
-import { FrequencyEditor } from './components/FrequencyEditor'
+import { hrcString } from './merge'
+import { computeFoldResult } from './fold'
+import { ImageActionCard } from './components/ImageActionCard'
+import { FoldActionCard } from './components/FoldActionCard'
+import { RangeGridPreview } from './components/RangeGridPreview'
+import { MergedGridPreview } from './components/MergedGridPreview'
 import { SettingsModal } from './components/Settings'
 
-export interface Slot {
-  action: string
+interface ImageAction {
+  id: string
+  kind: 'image'
+  name: string
   dataUrl: string | null
 }
 
-export interface Frequency {
+interface FoldActionItem {
   id: string
-  slots: Slot[]
-  results: ActionResult[] | null
-  loading: boolean
-  error: string | null
+  kind: 'fold'
+  percentText: string
 }
 
-const DEFAULT_ACTIONS = ['Raise', 'Call']
+type ActionItem = ImageAction | FoldActionItem
 
 let counter = 0
-function newFrequency(): Frequency {
+function imageAction(name = ''): ImageAction {
   counter += 1
-  return {
-    id: `freq-${counter}-${Date.now()}`,
-    slots: DEFAULT_ACTIONS.map((a) => ({ action: a, dataUrl: null })),
-    results: null,
-    loading: false,
-    error: null
-  }
+  return { id: `a${counter}-${Date.now()}`, kind: 'image', name, dataUrl: null }
+}
+function foldAction(): FoldActionItem {
+  counter += 1
+  return { id: `f${counter}-${Date.now()}`, kind: 'fold', percentText: '' }
 }
 
 function updateBannerText(s: UpdateStatus): string | null {
@@ -38,15 +41,20 @@ function updateBannerText(s: UpdateStatus): string | null {
       return `Baixando atualizacao... ${s.percent ?? 0}%`
     case 'downloaded':
       return `Atualizacao ${s.version ?? ''} pronta. Reinicie o app para aplicar.`
-    case 'error':
-      return null
     default:
       return null
   }
 }
 
 export function App(): JSX.Element {
-  const [frequencies, setFrequencies] = useState<Frequency[]>([newFrequency()])
+  const [actions, setActions] = useState<ActionItem[]>(() => [
+    imageAction('Raise'),
+    imageAction('Call')
+  ])
+  const [results, setResults] = useState<ActionResult[] | null>(null)
+  const [computing, setComputing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
   const [hasKey, setHasKey] = useState<boolean | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [updateBanner, setUpdateBanner] = useState<string | null>(null)
@@ -61,54 +69,70 @@ export function App(): JSX.Element {
     return off
   }, [refreshKey])
 
-  const patchFrequency = useCallback((id: string, patch: Partial<Frequency>) => {
-    setFrequencies((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)))
+  const hasFold = actions.some((a) => a.kind === 'fold')
+
+  const patch = useCallback((id: string, p: Partial<ImageAction> & Partial<FoldActionItem>) => {
+    setActions((prev) => prev.map((a) => (a.id === id ? ({ ...a, ...p } as ActionItem) : a)))
+    setResults(null)
   }, [])
 
-  const setSlotImage = useCallback((id: string, index: number, dataUrl: string | null) => {
-    setFrequencies((prev) =>
-      prev.map((f) => {
-        if (f.id !== id) return f
-        const slots = f.slots.map((s, i) => (i === index ? { ...s, dataUrl } : s))
-        return { ...f, slots, results: null, error: null }
-      })
+  const remove = useCallback((id: string) => {
+    setActions((prev) => prev.filter((a) => a.id !== id))
+    setResults(null)
+  }, [])
+
+  const addImage = useCallback(() => {
+    setActions((prev) => [...prev, imageAction('')])
+  }, [])
+
+  const addFold = useCallback(() => {
+    setActions((prev) => (prev.some((a) => a.kind === 'fold') ? prev : [...prev, foldAction()]))
+  }, [])
+
+  const calcular = useCallback(async () => {
+    if (!(await window.api.hasApiKey())) {
+      setSettingsOpen(true)
+      return
+    }
+    const imgs = actions.filter(
+      (a): a is ImageAction => a.kind === 'image' && !!a.dataUrl && a.name.trim() !== ''
     )
-  }, [])
+    if (!imgs.length) {
+      setError('Adicione pelo menos uma frequencia com nome e imagem colada.')
+      return
+    }
+    const names = imgs.map((a) => a.name.trim())
+    if (new Set(names.map((n) => n.toLowerCase())).size !== names.length) {
+      setError('Use nomes diferentes para cada frequencia.')
+      return
+    }
 
-  const addFrequency = useCallback(() => {
-    setFrequencies((prev) => [...prev, newFrequency()])
-  }, [])
+    setComputing(true)
+    setError(null)
+    setResults(null)
 
-  const removeFrequency = useCallback((id: string) => {
-    setFrequencies((prev) => (prev.length > 1 ? prev.filter((f) => f.id !== id) : prev))
-  }, [])
+    const resp = await window.api.identify(
+      imgs.map((a) => ({ action: a.name.trim(), dataUrl: a.dataUrl as string }))
+    )
+    if (!resp.ok) {
+      setComputing(false)
+      setError(resp.error)
+      return
+    }
 
-  const identify = useCallback(
-    async (id: string) => {
-      if (!(await window.api.hasApiKey())) {
-        setSettingsOpen(true)
-        return
+    let all = resp.results
+    const fold = actions.find((a): a is FoldActionItem => a.kind === 'fold')
+    if (fold) {
+      const raw = parseFloat(fold.percentText.replace(',', '.'))
+      if (!isNaN(raw) && raw > 0) {
+        const frac = raw > 1 ? raw / 100 : raw
+        all = [...all, computeFoldResult(all, frac)]
       }
-      const freq = frequencies.find((f) => f.id === id)
-      if (!freq) return
-      const images = freq.slots
-        .filter((s) => s.dataUrl)
-        .map((s) => ({ action: s.action, dataUrl: s.dataUrl as string }))
-      if (!images.length) {
-        patchFrequency(id, { error: 'Cole pelo menos uma imagem antes de confirmar.' })
-        return
-      }
+    }
 
-      patchFrequency(id, { loading: true, error: null, results: null })
-      const resp = await window.api.identify(images)
-      if (resp.ok) {
-        patchFrequency(id, { loading: false, results: resp.results })
-      } else {
-        patchFrequency(id, { loading: false, error: resp.error })
-      }
-    },
-    [frequencies, patchFrequency]
-  )
+    setResults(all)
+    setComputing(false)
+  }, [actions])
 
   return (
     <div className="app">
@@ -129,27 +153,64 @@ export function App(): JSX.Element {
 
       <main className="content">
         <div className="intro">
-          <h1>Identificar ranges</h1>
+          <h1>Identificar range</h1>
           <p>
-            Tire um print da tabela (Raise/Call) e cole com <kbd>Ctrl</kbd>+<kbd>V</kbd> em cada
-            campo. Clique em <strong>OK</strong> para identificar o range e os combos.
+            Cada frequencia e uma acao do range (Raise, Call, 3bet all in...). Dê um nome e cole o
+            print com <kbd>Ctrl</kbd>+<kbd>V</kbd>. Para o fold, basta informar a % — o sistema
+            infere as maos. Depois clique em <strong>Calcular</strong>.
           </p>
         </div>
 
-        {frequencies.map((freq, i) => (
-          <FrequencyEditor
-            key={freq.id}
-            index={i + 1}
-            frequency={freq}
-            onSetImage={(idx, url) => setSlotImage(freq.id, idx, url)}
-            onConfirm={() => identify(freq.id)}
-            onRemove={frequencies.length > 1 ? () => removeFrequency(freq.id) : undefined}
-          />
-        ))}
+        {actions.map((a) =>
+          a.kind === 'image' ? (
+            <ImageActionCard
+              key={a.id}
+              name={a.name}
+              dataUrl={a.dataUrl}
+              onName={(name) => patch(a.id, { name })}
+              onImage={(dataUrl) => patch(a.id, { dataUrl })}
+              onRemove={actions.length > 1 ? () => remove(a.id) : undefined}
+            />
+          ) : (
+            <FoldActionCard
+              key={a.id}
+              percentText={a.percentText}
+              onPercent={(percentText) => patch(a.id, { percentText })}
+              onRemove={() => remove(a.id)}
+            />
+          )
+        )}
 
-        <button className="btn btn-add" onClick={addFrequency}>
-          + Adicionar frequencia
-        </button>
+        <div className="add-row">
+          <button className="btn btn-add" onClick={addImage}>
+            + Adicionar frequencia
+          </button>
+          <button className="btn btn-add" onClick={addFold} disabled={hasFold}>
+            + Adicionar fold
+          </button>
+        </div>
+
+        <div className="calc-bar">
+          <button className="btn btn-primary btn-calc" onClick={calcular} disabled={computing}>
+            {computing ? 'Calculando...' : 'Calcular'}
+          </button>
+          {error && <span className="freq-error">{error}</span>}
+        </div>
+
+        {results && results.length > 0 && (
+          <section className="results">
+            <MergedGridPreview results={results} />
+            <div className="freq-results">
+              {results.map((res) => (
+                <RangeGridPreview
+                  key={res.action}
+                  result={res}
+                  hrc={hrcString(results, res.action)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
       </main>
 
       {settingsOpen && (

@@ -43,10 +43,9 @@ export function registerIpc(): void {
       if (!images?.length) return { ok: false, error: 'Nenhuma imagem para identificar.' }
 
       try {
-        const results: ActionResult[] = []
-        for (const img of images) {
-          results.push(await identifyImage(apiKey, img.dataUrl, img.action))
-        }
+        const results: ActionResult[] = await Promise.all(
+          images.map((img) => identifyImage(apiKey, img.dataUrl, img.action))
+        )
         return { ok: true, results }
       } catch (e) {
         return { ok: false, error: errMessage(e) }

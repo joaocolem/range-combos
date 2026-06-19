@@ -296,13 +296,78 @@ kbd {
   background: transparent;
   color: var(--text-dim);
   border: 1px dashed var(--border);
-  width: 100%;
+  flex: 1;
   padding: 14px;
 }
 
-.btn-add:hover {
+.btn-add:not(:disabled):hover {
   color: var(--text);
   border-color: var(--primary);
+}
+
+.add-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.calc-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 8px;
+}
+
+.btn-calc {
+  padding: 12px 28px;
+  font-size: 15px;
+}
+
+/* Action name / fold ------------------------------------------------------ */
+.action-name-input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 8px 12px;
+  font-size: 15px;
+  font-weight: 600;
+  outline: none;
+  margin-right: 12px;
+}
+
+.action-name-input:focus {
+  border-color: var(--primary);
+}
+
+.action-name-static {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.fold-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: rgb(110, 120, 135);
+  display: inline-block;
+}
+
+.fold-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.fold-input {
+  max-width: 160px;
+}
+
+.results {
+  margin-top: 8px;
 }
 
 .badge {
