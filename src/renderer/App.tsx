@@ -33,14 +33,18 @@ function foldAction(): FoldActionItem {
   return { id: `f${counter}-${Date.now()}`, kind: 'fold', percentText: '' }
 }
 
-function updateBannerText(s: UpdateStatus): string | null {
+function bannerText(s: UpdateStatus): string | null {
   switch (s.state) {
+    case 'checking':
+      return 'Verificando atualizacoes...'
     case 'available':
-      return `Atualizacao ${s.version ?? ''} disponivel. Baixando...`
+      return `Nova versao ${s.version ?? ''} disponivel. Deseja baixar?`
     case 'downloading':
       return `Baixando atualizacao... ${s.percent ?? 0}%`
     case 'downloaded':
-      return `Atualizacao ${s.version ?? ''} pronta. Reinicie o app para aplicar.`
+      return `Atualizacao ${s.version ?? ''} baixada.`
+    case 'not-available':
+      return s.message ?? 'Voce ja esta na ultima versao.'
     default:
       return null
   }
@@ -58,7 +62,7 @@ export function App(): JSX.Element {
 
   const [hasKey, setHasKey] = useState<boolean | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [updateBanner, setUpdateBanner] = useState<string | null>(null)
+  const [update, setUpdate] = useState<UpdateStatus | null>(null)
 
   const refreshKey = useCallback(async () => {
     setHasKey(await window.api.hasApiKey())
@@ -66,9 +70,14 @@ export function App(): JSX.Element {
 
   useEffect(() => {
     refreshKey()
-    const off = window.api.onUpdateStatus((s) => setUpdateBanner(updateBannerText(s)))
+    const off = window.api.onUpdateStatus((s) => setUpdate(s))
     return off
   }, [refreshKey])
+
+  const onDownloadUpdate = useCallback(() => {
+    if (window.api.platform === 'darwin') window.api.openDownloadPage()
+    else window.api.downloadUpdate()
+  }, [])
 
   const hasFold = actions.some((a) => a.kind === 'fold')
 
@@ -147,13 +156,35 @@ export function App(): JSX.Element {
         </div>
         <div className="topbar-right">
           {hasKey === false && <span className="badge badge-warn">Sem chave de API</span>}
+          <button className="btn btn-ghost" onClick={() => window.api.checkUpdates()}>
+            Verificar atualizacoes
+          </button>
           <button className="btn btn-ghost" onClick={() => setSettingsOpen(true)}>
             Configuracoes
           </button>
         </div>
       </header>
 
-      {updateBanner && <div className="update-banner">{updateBanner}</div>}
+      {update && bannerText(update) && (
+        <div className="update-banner">
+          <span>{bannerText(update)}</span>
+          <div className="update-actions">
+            {update.state === 'available' && (
+              <button className="btn btn-primary btn-sm" onClick={onDownloadUpdate}>
+                Baixar
+              </button>
+            )}
+            {update.state === 'downloaded' && (
+              <button className="btn btn-primary btn-sm" onClick={() => window.api.installUpdate()}>
+                Reiniciar e atualizar
+              </button>
+            )}
+            <button className="banner-close" onClick={() => setUpdate(null)} title="Dispensar">
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       <main className="content">
         <div className="intro">

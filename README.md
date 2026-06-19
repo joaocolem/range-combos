@@ -67,17 +67,30 @@ Os artefatos vão para `dist/`.
    (`latest.yml` / `latest-mac.yml`).
 4. O app verifica atualizações automaticamente ao abrir (`electron-updater`).
 
+> Configure o repositório em **dois lugares** (devem bater): `owner`/`repo` em
+> `electron-builder.yml` e `GITHUB_OWNER`/`GITHUB_REPO` em `src/shared/config.ts`.
+
+### Comportamento do update por sistema
+
+O app verifica updates ao abrir e há um botão **"Verificar atualizações"** na barra de topo.
+
+- **Windows** (electron-updater): ao detectar nova versão, mostra um aviso **perguntando se
+  deseja baixar**. Você clica em **Baixar** → barra de progresso → botão **Reiniciar e
+  atualizar** (instala e reabre). Funciona sem assinatura (o instalador exibe um aviso do
+  SmartScreen).
+- **macOS**: como não está assinado, a verificação é feita via API do GitHub (sem depender de
+  assinatura). Ao detectar nova versão, mostra o aviso e o botão **Baixar** abre a página de
+  releases para baixar o `.dmg` manualmente.
+
 ### Assinatura de código (decidir depois)
 
-A estrutura já está pronta; a assinatura está **desativada** por enquanto.
-
-- **Windows**: o auto-update já funciona sem assinatura (o instalador exibe um aviso do
-  SmartScreen). Para assinar, defina `CSC_LINK` e `CSC_KEY_PASSWORD` nos secrets do CI.
-- **macOS**: o auto-update **só funciona após assinar + notarizar** (requer conta Apple
-  Developer, US$99/ano). Até lá, no macOS a atualização é manual (baixar o novo `.dmg`).
-  Para ativar: configure os secrets `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`,
-  `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`, remova `identity: null`/`notarize: false`
-  em `electron-builder.yml` e descomente os envs no workflow.
+A estrutura já está pronta; a assinatura está **desativada** por enquanto. Para ativar o
+auto-update completo no macOS (download + instalação automáticos), é preciso assinar +
+notarizar (conta Apple Developer, US$99/ano): configure os secrets `CSC_LINK`,
+`CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`, remova
+`identity: null`/`notarize: false` em `electron-builder.yml`, descomente os envs no workflow e
+troque a verificação do macOS pelo fluxo do electron-updater. Para assinar o Windows, defina
+`CSC_LINK` e `CSC_KEY_PASSWORD` nos secrets.
 
 ## Estrutura
 
