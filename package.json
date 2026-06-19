@@ -1,6 +1,6 @@
 {
   "name": "range-combos",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Visualiza ranges de poker e quantidade de combos a partir do JSON exportado do Hand2Note.",
   "author": "",
   "license": "MIT",
