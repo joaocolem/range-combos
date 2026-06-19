@@ -52,6 +52,7 @@ export function App(): JSX.Element {
     imageAction('Call')
   ])
   const [results, setResults] = useState<ActionResult[] | null>(null)
+  const [foldPct, setFoldPct] = useState<number | null>(null)
   const [computing, setComputing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -110,6 +111,7 @@ export function App(): JSX.Element {
     setComputing(true)
     setError(null)
     setResults(null)
+    setFoldPct(null)
 
     const resp = await window.api.identify(
       imgs.map((a) => ({ action: a.name.trim(), dataUrl: a.dataUrl as string }))
@@ -121,15 +123,17 @@ export function App(): JSX.Element {
     }
 
     let all = resp.results
+    let foldFraction: number | null = null
     const fold = actions.find((a): a is FoldActionItem => a.kind === 'fold')
     if (fold) {
       const raw = parseFloat(fold.percentText.replace(',', '.'))
-      if (!isNaN(raw) && raw > 0) {
-        const frac = raw > 1 ? raw / 100 : raw
-        all = [...all, computeFoldResult(all, frac)]
-      }
+      const target = !isNaN(raw) && raw > 0 ? (raw > 1 ? raw / 100 : raw) : null
+      const fr = computeFoldResult(all, target)
+      foldFraction = fr.foldFraction
+      all = [...all, fr]
     }
 
+    setFoldPct(foldFraction)
     setResults(all)
     setComputing(false)
   }, [actions])
@@ -199,6 +203,11 @@ export function App(): JSX.Element {
 
         {results && results.length > 0 && (
           <section className="results">
+            {foldPct != null && (
+              <div className="results-note">
+                Fold inferido: <strong>{(foldPct * 100).toFixed(1)}%</strong>
+              </div>
+            )}
             <MergedGridPreview results={results} />
             <div className="freq-results">
               {results.map((res) => (

@@ -11,11 +11,16 @@ no formato **HRC**.
 
 ### Inferência do fold
 
-Você normalmente só tem a % global de fold, não o grid. O app infere a distribuição assim: cada mão
-é "recebida" proporcionalmente aos seus combos reais (par 6, suited 4, offsuit 12); as ações jogadas
-(Raise/Call/...) mostram quanto da mão **não** foldou; o fold de cada mão é o que falta para o peso
-cheio. Um fator de escala é calibrado por bisseção para que o fold total bata a % informada. Resultado:
-mãos fortes praticamente não foldam e as fracas absorvem o fold (ex.: AK ≈ 0% de fold, lixo ≈ 100%).
+Você normalmente não tem o grid de fold. O app infere a distribuição ancorando o **peso cheio**
+(100%, sem fold) de cada categoria nas mãos mais fortes que não foldam: **AA/KK** (pares),
+**AKs** (suited) e **AKo** (offsuit). Cada mão folda só a diferença até o cheio da sua categoria
+(`fold = cheio − jogado`), preservando o play mínimo que aparece nos grids. Assim mãos fortes não
+foldam (AK ≈ 0%), mãos "OK" foldam uma parte (ex.: QTo ~65%) e o lixo folda quase tudo mas mantém
+seu call/raise mínimo (32o nunca é 100%).
+
+O campo de % no card de Fold é **opcional**: em branco, usa as âncoras direto; preenchido, calibra
+uma escala global por bisseção para o fold total bater essa porcentagem. O fold inferido é exibido
+junto com os resultados.
 
 ## Pré-requisitos
 

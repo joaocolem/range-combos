@@ -370,6 +370,20 @@ kbd {
   margin-top: 8px;
 }
 
+.results-note {
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.results-note strong {
+  color: var(--text);
+}
+
 .badge {
   font-size: 12px;
   padding: 4px 10px;
