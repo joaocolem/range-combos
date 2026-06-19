@@ -1,4 +1,4 @@
-import { ipcMain, clipboard } from 'electron'
+import { ipcMain, clipboard, app } from 'electron'
 import { getApiKey, hasApiKey, setApiKey } from './store'
 import { identifyImage, testKey } from './anthropic'
 import type {
@@ -14,6 +14,8 @@ function errMessage(e: unknown): string {
 }
 
 export function registerIpc(): void {
+  ipcMain.handle('app:version', () => app.getVersion())
+
   ipcMain.handle('has-api-key', () => hasApiKey())
 
   ipcMain.handle('clipboard-write', (_e, text: string) => {

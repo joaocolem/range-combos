@@ -86,6 +86,13 @@ kbd {
   font-size: 16px;
 }
 
+.brand-version {
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 500;
+  -webkit-app-region: no-drag;
+}
+
 .topbar-right {
   display: flex;
   align-items: center;

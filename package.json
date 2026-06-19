@@ -1,6 +1,6 @@
 {
   "name": "range-combos",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Identifica ranges de poker e quantidade de combos a partir de prints, via API de visão da Anthropic.",
   "author": "",
   "license": "MIT",

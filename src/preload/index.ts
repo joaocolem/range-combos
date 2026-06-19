@@ -7,6 +7,7 @@ import type {
 } from '../shared/types'
 
 const api = {
+  getVersion: (): Promise<string> => ipcRenderer.invoke('app:version'),
   hasApiKey: (): Promise<boolean> => ipcRenderer.invoke('has-api-key'),
   setApiKey: (key: string): Promise<{ ok: true }> => ipcRenderer.invoke('set-api-key', key),
   testApiKey: (key: string): Promise<TestKeyResponse> => ipcRenderer.invoke('test-api-key', key),

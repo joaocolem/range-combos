@@ -76,6 +76,7 @@ export function App(): JSX.Element {
   const [hasKey, setHasKey] = useState<boolean | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [update, setUpdate] = useState<UpdateStatus | null>(null)
+  const [version, setVersion] = useState('')
 
   const refreshKey = useCallback(async () => {
     setHasKey(await window.api.hasApiKey())
@@ -83,6 +84,7 @@ export function App(): JSX.Element {
 
   useEffect(() => {
     refreshKey()
+    window.api.getVersion().then(setVersion)
     const off = window.api.onUpdateStatus((s) => setUpdate(s))
     return off
   }, [refreshKey])
@@ -199,6 +201,7 @@ export function App(): JSX.Element {
         <div className="brand">
           <span className="brand-mark">♠</span>
           <span className="brand-name">Range Combos</span>
+          {version && <span className="brand-version">v{version}</span>}
         </div>
         <div className="topbar-right">
           {hasKey === false && <span className="badge badge-warn">Sem chave de API</span>}
